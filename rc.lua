@@ -6,9 +6,20 @@ require("awful.rules")
 require("beautiful")
 -- Notification library
 require("naughty")
+-- Calendar
+require("calendar2")
 
 -- Load Debian menu entries
 require("debian.menu")
+
+-- {{{ Variable definitions
+local altkey	= "Mod1"
+local modkey	= "Mod4"
+
+local home = os.getenv("HOME")
+local exec 		= awful.util.spawn
+local sexec		= awful.util.spawn_with_shell
+-- }}}
 
 -- {{{ Error handling
 -- Check if awesome encountered an error during startup and fell back to
@@ -37,7 +48,8 @@ end
 
 -- {{{ Variable definitions
 -- Themes define colours, icons, and wallpapers
-beautiful.init(awesome_theme .. "theme.lua")
+--beautiful.init(home .."/.config/awesome/zenburn.lua")
+beautiful.init("/usr/share/awesome/themes/default/theme.lua")
 
 -- This is used later as the default terminal and editor to run.
 terminal = "x-terminal-emulator"
@@ -47,49 +59,51 @@ editor = os.getenv("EDITOR") or "editor"
 editor_cmd = terminal .. " -e " .. editor
 browser = "firefox"
 
--- Default modkey.
--- Usually, Mod4 is the key with a logo between Control and Alt.
--- If you do not like this or do not have such a key,
--- I suggest you to remap Mod4 to another key using xmodmap or other tools.
--- However, you can use another modifier like Mod1, but it may interact with others.
-modkey = "Mod4"
-
 -- Table of layouts to cover with awful.layout.inc, order matters.
 layouts =
 {
-    awful.layout.suit.floating,
-    awful.layout.suit.tile,
     awful.layout.suit.max,
+    awful.layout.suit.tile,
+    awful.layout.suit.floating,
 }
 -- }}}
 
 -- {{{ Tags
 -- Define a tag table which hold all screen tags.
 tags = {}
-for s = 1, screen.count() do
-    -- Each screen has its own tag table.
-    tags[s] = awful.tag({ 1, 2, 3, 4, 5, 6, 7, 8, 9 }, s, layouts[2])
-end
--- }}}
---
--- {{{ Menu
--- Create main menu
-mymainmenu = awful.menu({ items = {
-  				{ "manual", terminal .. " -e man awesome" },
-				{ "config", editor_cmd .. " " .. awesome.conffile },
-				{ "wallpaper", "nitrogen" },
-				{ "restart", awesome.restart },
-				{ "quit", awesome.quit }   
-			}	
-		})
+-- Each screen has its own tag table.
+tags[1] = awful.tag({ "web", "mail" }, 1, layouts[1])
+tags[2] = awful.tag({ 1, 2, 3, 4, 5, 6, 7, 8, 9 }, 2, layouts[1])
+tags[3] = awful.tag({ "im", "org", "doc", "note", "media" }, 3, layouts[1])
 -- }}}
 
+
+-- {{{ Menu
+-- Create a laucher widget and a main menu
+myawesomemenu = {
+   { "manual", terminal .. " -e man awesome" },
+   { "edit config", editor_cmd .. " " .. awesome.conffile },
+   { "wallpaper", "nitrogen" },
+   { "restart", awesome.restart },
+   { "quit", awesome.quit }
+}
+
+mymainmenu = awful.menu({ items = { { "awesome", myawesomemenu, beautiful.awesome_icon },
+                                    { "Debian", debian.menu.Debian_menu.Debian },
+                                    { "open terminal", terminal }
+                                  }
+                        })
+
+mylauncher = awful.widget.launcher({ image = image(beautiful.awesome_icon),
+                                     menu = mymainmenu })
+-- }}}
 
 -- {{{ Wibox
 -- Create a textclock widget
-mytextclock = awful.widget.textclock()
+mytextclock = awful.widget.textclock({ align = "right" })
+calendar2.addCalendarToWidget(mytextclock)
 
--- Create a systray widget
+-- Create a systray
 mysystray = widget({ type = "systray" })
 
 -- Create a wibox for each screen and add it
@@ -157,23 +171,22 @@ for s = 1, screen.count() do
                                           end, mytasklist.buttons)
 
     -- Create the wibox
-    mywibox[s] = awful.wibox({ position = "top", height = 24, screen = s })
+    mywibox[s] = awful.wibox({ position = "top", screen = s })
     -- Add widgets to the wibox - order matters
     mywibox[s].widgets = {
-		awful.util.table.join(mylauncher, {
-				layout = awful.widget.layout.horizontal.leftright
-			}), 
-			mysystembutton,	
-			mytextclock,
-			s == 3 and mysystray or nil,
-        	mylayoutbox[s],
+        {
+            mylauncher,
             mytaglist[s],
-			mypromptbox[s],
-        	mytasklist[s],
-			layout = awful.widget.layout.horizontal.rightleft  
+        	mylayoutbox[s],
+            mypromptbox[s],
+            layout = awful.widget.layout.horizontal.leftright
+        },
+        mytextclock,
+        s == 3 and mysystray or nil,
+        mytasklist[s],
+        layout = awful.widget.layout.horizontal.rightleft
     }
 end
-
 -- }}}
 
 -- {{{ Mouse bindings
@@ -184,18 +197,19 @@ root.buttons(awful.util.table.join(
 ))
 -- }}}
 
-
-
 -- {{{ Key bindings
 globalkeys = awful.util.table.join(
     awful.key({ modkey,           }, "Left",   awful.tag.viewprev       ),
     awful.key({ modkey,           }, "Right",  awful.tag.viewnext       ),
     awful.key({ modkey,           }, "Escape", awful.tag.history.restore),
-    awful.key({ modkey,           }, "j", function ()
+
+    awful.key({ modkey,           }, "j",
+        function ()
             awful.client.focus.byidx( 1)
             if client.focus then client.focus:raise() end
         end),
-    awful.key({ modkey,           }, "k", function ()
+    awful.key({ modkey,           }, "k",
+        function ()
             awful.client.focus.byidx(-1)
             if client.focus then client.focus:raise() end
         end),
@@ -207,31 +221,21 @@ globalkeys = awful.util.table.join(
     awful.key({ modkey, "Control" }, "j", function () awful.screen.focus_relative( 1) end),
     awful.key({ modkey, "Control" }, "k", function () awful.screen.focus_relative(-1) end),
     awful.key({ modkey,           }, "u", awful.client.urgent.jumpto),
-	awful.key({ modkey,           }, "Tab", function ()
-        awful.client.focus.byidx(1)
-        if client.focus then
-            client.focus:raise()
-        end
-    end),
-	awful.key({ modkey, "Shift"   }, "Tab", function ()
-        awful.client.focus.byidx(1)
-        if client.focus then
-            client.focus:raise()
-        end
-    end),	
+    awful.key({ modkey,           }, "Tab",
+        function ()
+            awful.client.focus.history.previous()
+            if client.focus then
+                client.focus:raise()
+            end
+        end),
 
     -- Standard program
     awful.key({ modkey,           }, "Return", function () awful.util.spawn(terminal) end),
-	awful.key({ modkey, "Shift"   }, "Return", function () awful.util.spawn(filemanager_cmd) end),
     awful.key({ modkey, "Control" }, "r", awesome.restart),
     awful.key({ modkey, "Shift"   }, "q", awesome.quit),
 
-	-- Resize tile
     awful.key({ modkey,           }, "l",     function () awful.tag.incmwfact( 0.05)    end),
     awful.key({ modkey,           }, "h",     function () awful.tag.incmwfact(-0.05)    end),
-    --awful.key({ modkey, "Alt"	  }, "l", 	  function () awful.client.incwfact(-0.05)  end),
-    --awful.key({ modkey, "Alt"	  }, "h", 	  function () awful.client.incwfact( 0.05)  end),
-	-- 
     awful.key({ modkey, "Shift"   }, "h",     function () awful.tag.incnmaster( 1)      end),
     awful.key({ modkey, "Shift"   }, "l",     function () awful.tag.incnmaster(-1)      end),
     awful.key({ modkey, "Control" }, "h",     function () awful.tag.incncol( 1)         end),
@@ -242,37 +246,51 @@ globalkeys = awful.util.table.join(
     awful.key({ modkey, "Control" }, "n", awful.client.restore),
 
     -- Prompt
-    awful.key({ modkey },            "r",
-		function () 
-			--myprobox[mouse.screen].visible = not myprobox[mouse.screen].visible
-			mypromptbox[mouse.screen]:run() 
-		end),
+	awful.key({ modkey },            "r",
+	function ()  
+		mypromptbox[mouse.screen]:run() 
+	end),
+    awful.key({ altkey }, "F2", function ()
+        awful.prompt.run({ prompt = "Run: " }, mypromptbox[mouse.screen].widget,
+            function (...) mypromptbox[mouse.screen].text = exec(unpack(arg), false) end,
+            awful.completion.shell, awful.util.getdir("cache") .. "/history")
+    end),
+    awful.key({ altkey }, "F3", function ()
+        awful.prompt.run({ prompt = "Dictionary: " }, mypromptbox[mouse.screen].widget,
+            function (words)
+                sexec("firefox 'http://www.dict.cc/?s="..words.."'")
+            end)
+    end),
+    awful.key({ altkey }, "F4", function ()
+        awful.prompt.run({ prompt = "Web: " }, mypromptbox[mouse.screen].widget,
+            function (command)
+                sexec("firefox 'http://www.google.com/?q="..command.."'")
+                awful.tag.viewonly(tags[scount][3])
+            end)
+    end),
+    awful.key({ altkey }, "F5", function ()
+        awful.prompt.run({ prompt = "Lua: " }, mypromptbox[mouse.screen].widget,
+        awful.util.eval, nil, awful.util.getdir("cache") .. "/history_eval")
+    end),	
+			  
+  	-- Volume keys
+  	awful.key({ }, "XF86AudioLowerVolume", 
+		  function () awful.util.spawn("amixer -q sset Master 2dB-") end),
+	awful.key({ }, "XF86AudioRaiseVolume", 
+		  function () awful.util.spawn("amixer -q sset Master 2dB+") end),
 
-    awful.key({ modkey }, "x",
-              function ()
-                  awful.prompt.run({ prompt = "Run Lua code: " },
-                  mypromptbox[mouse.screen].widget,
-                  awful.util.eval, nil,
-                  awful.util.getdir("cache") .. "/history_eval")
-              end),
-
-    --Volume keys
-    awful.key({ }, "XF86AudioLowerVolume", 
-        function () awful.util.spawn("amixer -q sset Master 2dB-") end),
-    awful.key({ }, "XF86AudioRaiseVolume", 
-        function () awful.util.spawn("amixer -q sset Master 2dB+") end)
+	-- System keys
+	awful.key({ modkey, "Control" }, "F11", function () sexec("sudo pm-hibernate") end),
+	awful.key({ modkey }, "F11", function () sexec("sudo shutdown") end),
+	awful.key({ modkey }, "F4", function () 
+		awful.screen.focus(3)
+		awful.tag.viewonly(tags[3][5])
+		exec("gnome-terminal -e 'alsamixer'") 
+	end)
+	  
 )
 
 clientkeys = awful.util.table.join(
-	awful.key({ modkey, "Control" }, "t",	  function (c) os.execute("gnome-terminal")	 end),
-	awful.key({ modkey, "Control" }, "Left",  function (c) 
-			-- Moves current window to the left screen.
-			os.execute("~/Bin/screen/screen_window_move.sh --left") 
-		end),
-	awful.key({ modkey, "Control" }, "Right", function (c) 
-			-- Moves current window to the right screen,
-			os.execute("~/Bin/screen/screen_window_move.sh --right") 
-		end),
     awful.key({ modkey,           }, "f",      function (c) c.fullscreen = not c.fullscreen  end),
     awful.key({ modkey, "Shift"   }, "c",      function (c) c:kill()                         end),
     awful.key({ modkey, "Control" }, "space",  awful.client.floating.toggle                     ),
@@ -329,16 +347,8 @@ for i = 1, keynumber do
                       if client.focus and tags[client.focus.screen][i] then
                           awful.client.toggletag(tags[client.focus.screen][i])
                       end
-                  end),
-        awful.key({modkey, "Alt", "Shift" }, "#" .. i + 9,
-                  function ()
-                      os.execute("~/Scripts/screen_window_move.sh " .. i + 9)
                   end))
 end
-
--- Bind the combination [STRG] + [ALT] + [LEFT]/[RIGHT] to move windows to the
---  left/right screen (relative to your position).
---globalkeys = awfule.util.table.join(globalkeys,
 
 clientbuttons = awful.util.table.join(
     awful.button({ }, 1, function (c) client.focus = c; c:raise() end),
@@ -364,22 +374,27 @@ awful.rules.rules = {
       properties = { floating = true } },
     { rule = { class = "gimp" },
       properties = { floating = true } },
+	-- Bind applications to tags.
      { rule = { class = "Firefox" },
        properties = { tag = tags[1][1] } },
      { rule = { class = "Thunderbird" },
        properties = { tag = tags[1][2] } },
      { rule = { class = "Skype" },
        properties = { tag = tags[3][1] } },
-     { rule = { class = "Amarok" },
-       properties = { tag = tags[3][2] } },
      { rule = { class = "Calibre" },
-       properties = { tag = tags[3][3] } },
+       properties = { tag = tags[3][2] } },
+     { rule = { class = "Zotero" },
+       properties = { tag = tags[3][2] } },
      { rule = { class = "Evince" },
        properties = { tag = tags[3][3] } },
-     { rule = { class = "Zotero" },
-       properties = { tag = tags[3][3] } },
      { rule = { class = "Tomboy" },
-       properties = { tag = tags[3][4] } }
+       properties = { tag = tags[3][4] } },
+     { rule = { class = "Clementine" },
+       properties = { tag = tags[3][5] } },
+     { rule = { class = "Amarok" },
+       properties = { tag = tags[3][5] } },
+	 { rule = { class = "update-manager" },
+	   properties = { tag = tags[2][1] } }
 }
 -- }}}
 
@@ -415,9 +430,9 @@ client.add_signal("unfocus", function(c) c.border_color = beautiful.border_norma
 -- }}}
 
 -- {{{ Autostart
-
--- jealous.autostart()
-os.execute("~/Bin/app/dropbox/dropbox --S &")
-os.execute("tomboy  --panel-applet &")
-os.execute("nitrogen --restore &")
+awful.util.spawn(home .. "/Bin/app/dropbox/dropbox --S")
+awful.util.spawn("update-manager")
+awful.util.spawn("tomboy  --panel-applet")
+awful.util.spawn("nitrogen --restore")
 -- }}}
+
