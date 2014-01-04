@@ -13,15 +13,37 @@ require("calendar2")
 require("debian.menu")
 
 -- {{{ Variable definitions
+
+-- Themes define colours, icons, and wallpapers
+beautiful.init("/usr/share/awesome/themes/default/theme.lua")
+
 local altkey	= "Mod1"
 local modkey	= "Mod4"
 
 local home = os.getenv("HOME")
+local config = awful.util.getdir("config")
 local exec 		= awful.util.spawn
 local sexec		= awful.util.spawn_with_shell
+
+local terminal = "x-terminal-emulator"
+local filemanager = "ranger"
+local filemanager_cmd = terminal .. " -e " .. filemanager
+local editor = os.getenv("EDITOR") or "editor"
+local editor_cmd = terminal .. " -e " .. editor
+local browser = "firefox"
+local shutdown_dialog = config .. "/bin/system/shutdown_dialog.sh"
+
+-- Table of layouts to cover with awful.layout.inc, order matters.
+layouts =
+{
+    awful.layout.suit.max,
+    awful.layout.suit.tile,
+    awful.layout.suit.floating,
+}
 -- }}}
 
 -- {{{ Error handling
+
 -- Check if awesome encountered an error during startup and fell back to
 -- another config (This code will only ever execute for the fallback config)
 if awesome.startup_errors then
@@ -44,28 +66,6 @@ do
         in_error = false
     end)
 end
--- }}}
-
--- {{{ Variable definitions
--- Themes define colours, icons, and wallpapers
---beautiful.init(home .."/.config/awesome/zenburn.lua")
-beautiful.init("/usr/share/awesome/themes/default/theme.lua")
-
--- This is used later as the default terminal and editor to run.
-terminal = "x-terminal-emulator"
-filemanager = "ranger"
-filemanager_cmd = terminal .. " -e " .. filemanager
-editor = os.getenv("EDITOR") or "editor"
-editor_cmd = terminal .. " -e " .. editor
-browser = "firefox"
-
--- Table of layouts to cover with awful.layout.inc, order matters.
-layouts =
-{
-    awful.layout.suit.max,
-    awful.layout.suit.tile,
-    awful.layout.suit.floating,
-}
 -- }}}
 
 -- {{{ Tags
@@ -280,8 +280,7 @@ globalkeys = awful.util.table.join(
 		  function () awful.util.spawn("amixer -q sset Master 2dB+") end),
 
 	-- System keys
-	awful.key({ modkey, "Control" }, "F11", function () sexec("sudo pm-hibernate") end),
-	awful.key({ modkey }, "F11", function () sexec("sudo shutdown") end),
+	awful.key({ modkey }, "F11", function () awful.util.spawn(shutdown_dialog) end),
 	awful.key({ modkey }, "F4", function () 
 		awful.screen.focus(3)
 		awful.tag.viewonly(tags[3][5])
