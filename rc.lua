@@ -11,13 +11,7 @@ require("calendar2")
 
 vicious = require("vicious")
 
--- Load Debian menu entries
-require("debian.menu")
-
 -- {{{ Variable definitions
-
--- Themes define colours, icons, and wallpapers
-beautiful.init("/usr/share/awesome/themes/default/theme.lua")
 
 local altkey	= "Mod1"
 local modkey	= "Mod4"
@@ -33,6 +27,14 @@ local editor = os.getenv("EDITOR") or "editor"
 local editor_cmd = terminal .. " -e " .. editor
 local browser = "firefox"
 local shutdown_dialog = config .. "/bin/system/shutdown_dialog.sh"
+local multidrop = home .. "/Bin/app/dropbox/dropbox"
+local login_screen = config .. "/bin/screen/login_screen.py"
+
+-- }}}
+
+-- {{{ Define colours. icons, and wallpapers
+
+beautiful.init(config .. "/theme.lua")
 
 -- }}}
 
@@ -76,7 +78,7 @@ layouts =
 tags = {}
 -- Each screen has its own tag table.
 tags[1] = awful.tag({ "web", "mail" }, 1, layouts[1])
-tags[2] = awful.tag({ "main", "dev", "gfx"  }, 2, layouts[1])
+tags[2] = awful.tag({ "main", "dev", "gfx"}, 2, layouts[1])
 tags[3] = awful.tag({ "sys", "im", "org", "doc", "note", "media" }, 3, layouts[1])
 
 -- }}}
@@ -84,7 +86,7 @@ tags[3] = awful.tag({ "sys", "im", "org", "doc", "note", "media" }, 3, layouts[1
 -- {{{ Wibox
 -- Create a textclock widget
 timewidget = widget({ type = "textbox" })
-vicious.register(timewidget, vicious.widgets.date, '<span color="#6b8ba3" weight="bold"> %F ≀ %R </span>')
+vicious.register(timewidget, vicious.widgets.date, '<span color="#ffffff" weight="bold"> %F %R </span>')
 calendar2.addCalendarToWidget(timewidget)
 
 -- Create a systray
@@ -92,19 +94,27 @@ mysystray = widget({ type = "systray" })
 
 -- Create volume-widget
 volwidget = widget({ type = "textbox" })
-vicious.register(volwidget, vicious.widgets.volume, '<span color="#6b8ba3"> Volume: $1% </span>', 2, "Master")
+vicious.register(volwidget, vicious.widgets.volume, '<span color="#ffffff" weight="bold"> Volume:</span><span color="#ffffff"> $1% </span>', 2, "Master")
 volicon = widget ({type = "imagebox" })
 volicon.image = image(beautiful.widget_vol)
 
+-- Create screenlock-widget
+screenlockwidget = widget({type = "textbox" })
+vicious.register(screenlockwidget, vicious.widgets.screenlock, '<span color="#ffffff" weight="bold"> Lock:</span><span color="#ffffff"> $1 </span>')
+
+-- Create updates-widget
+updateswidget = widget({type = "textbox"})
+vicious.register(updateswidget, vicious.widgets.updates, '<span color="#ffffff" weight="bold"> Updates:</span><span color="#ffffff"> $1 </span>')
+
 -- Create memory-widget
 memwidget = widget({ type = "textbox" })
-vicious.register(memwidget, vicious.widgets.mem, '<span color="#6b8ba3"> Memory: $1% </span>', 13)
+vicious.register(memwidget, vicious.widgets.mem, '<span color="#ffffff" weight="bold"> Memory:</span><span color="#ffffff"> $1% </span>', 13)
 memicon = widget ({type = "imagebox" })
 memicon.image = image(beautiful.widget_mem)
 
 -- Create logo
 mylogo = widget({type = "textbox" })
-mylogo.text = "<span color=\"#6b8ba3\"> (◣_◢) </span>"
+mylogo.text = "<span color=\"#ffffff\"> (◣_◢) </span>"
 
 -- Create a wibox for each screen and add it
 mywibox = {}
@@ -182,8 +192,10 @@ for s = 1, screen.count() do
         },
         mylayoutbox[s],
         timewidget,
-		memwidget, memicon,
-		volwidget, volicon,
+		s == 2 and memwidget or nil,
+		s == 2 and updateswidget or nil,
+		s == 2 and volwidget or nil,
+		s == 2 and screenlockwidget or nil,
         s == 3 and mysystray or nil,
         mytasklist[s],
         layout = awful.widget.layout.horizontal.rightleft
@@ -193,7 +205,7 @@ end
 
 -- {{{ Mouse bindings
 root.buttons(awful.util.table.join(
-    awful.button({ }, 3, function () mymainmenu:toggle() end),
+    -- awful.button({ }, 3, function ()  end),
     awful.button({ }, 4, awful.tag.viewnext),
     awful.button({ }, 5, awful.tag.viewprev)
 ))
@@ -274,7 +286,7 @@ globalkeys = awful.util.table.join(
         awful.prompt.run({ prompt = "Lua: " }, mypromptbox[mouse.screen].widget,
         awful.util.eval, nil, awful.util.getdir("cache") .. "/history_eval")
     end),	
-			  
+   
   	-- Volume keys
   	awful.key({ }, "XF86AudioLowerVolume", 
 		  function () awful.util.spawn("amixer -q sset Master 2dB-") end),
@@ -282,13 +294,21 @@ globalkeys = awful.util.table.join(
 		  function () awful.util.spawn("amixer -q sset Master 2dB+") end),
 
 	-- System keys
-	awful.key({ modkey }, "F11", function () awful.util.spawn(shutdown_dialog) end),
-	awful.key({ modkey }, "F4", function () 
-		awful.screen.focus(3)
-		awful.tag.viewonly(tags[3][5])
-		exec("gnome-terminal -e 'alsamixer'") 
-	end)
-	  
+	awful.key({ modkey }, "F10", function () 
+		local namespace = " org.gnome.desktop.screensaver "
+		local attribute = " idle-activation-enabled "
+
+		-- Get screen-lock state
+		local f = io.popen("gsettings get " .. namespace .. attribute)
+		local lock = f:read("*all")
+		f:close()
+
+		-- Toggle state
+		local is_active = string.match(lock, "(%a+)")
+		local state = (is_active == "true" and "false" or "true")
+		os.execute("gsettings set " .. namespace .. attribute .. state)
+	end),
+	awful.key({ modkey }, "F11", function () awful.util.spawn(shutdown_dialog) end)
 )
 
 clientkeys = awful.util.table.join(
@@ -356,35 +376,6 @@ clientbuttons = awful.util.table.join(
     awful.button({ modkey }, 1, awful.mouse.client.move),
     awful.button({ modkey }, 3, awful.mouse.client.resize))
 
--- Handles tab key to fast switch between gimp image and tollboxes windows
-gimp_box_keys = awful.util.table.join(clientkeys,
-    awful.key({}, "Tab", function (c)
-        local boxes = get_clients(function(c) return c.role=="gimp-toolbox" or c.role=="gimp-dock" end)
-        local boxes_are_visible = true
-        for _, c in pairs(boxes) do
-            if not c.above then
-                boxes_are_visible = false
-                break
-            end
-        end
-
-        if boxes_are_visible then
-            for _, c in pairs(boxes) do
-                c.below = true
-            end
-
-            local c = get_client(match_client{role="gimp-image-window"})
-            if c then
-                client.focus = c
-            end
-        else
-            for _, c in pairs(boxes) do
-                c.above = true
-            end
-        end
-    end)
-)
-
 -- }}}
 
 -- Set keys
@@ -400,30 +391,23 @@ awful.rules.rules = {
                      focus = true,
                      keys = clientkeys,
                      buttons = clientbuttons } },
-	-- Let some applications float.
-    { rule = { class = "MPlayer" },			properties = { floating = true } },
-    { rule = { class = "pinentry" },		properties = { floating = true } },
-	-- Gimp specifics.
-    { rule = { class = "Gimp" }, 						properties = { tag = tags[2][3] } },
-    { rule = { instance = "gimp", type = "dialog" },	properties = { above = true } },
-    { rule = { role = "gimp-image-window" }, 			properties = { keys = gimp_box_keys, border_width = 0, floating = false, } },
-    { rule = { role = "gimp-toolbox" }, 				properties = { 
-			size_hints_honor = false, skip_taskbar = true, focus = false, keys = gimp_box_keys, 
-			geometry = {x=0, y=19, height=562, width=400}, below = true } },
-    { rule = { role = "gimp-dock" }, 					properties = { 
-			size_hints_honor = false, skip_taskbar = true, focus = false, keys = gimp_box_keys,
-        	geometry = {x=624, y=19, height=562, width=400}, below = true } },
+	-- Firefox
+     { rule = { role = "browser" },					properties = { tag = tags[1][1] } },
+     { rule = { class = "Dialog" },					properties = { floating = true  } },
 	-- Bind applications to tags.
-     { rule = { class = "Firefox" },		properties = { tag = tags[1][1] } },
-     { rule = { class = "Thunderbird" },	properties = { tag = tags[1][2] } },
-     { rule = { class = "Skype" },			properties = { tag = tags[3][2] } },
-     { rule = { class = "Calibre" },		properties = { tag = tags[3][3] } },
-     { rule = { class = "Zotero" },			properties = { tag = tags[3][3] } },
-     { rule = { class = "Evince" },			properties = { tag = tags[3][4] } },
-     { rule = { class = "Tomboy" },			properties = { tag = tags[3][5] } },
-     { rule = { class = "Clementine" },		properties = { tag = tags[3][6] } },
-     { rule = { class = "Amarok" },			properties = { tag = tags[3][6] } },
-	 { rule = { class = "update-manager" },	properties = { tag = tags[3][1] } }
+     { rule = { class = "Thunderbird" },			properties = { tag = tags[1][2] } },
+     { rule = { class = "Skype" },					properties = { tag = tags[3][2] } },
+     { rule = { class = "Calibre" },				properties = { tag = tags[3][3] } },
+     { rule = { class = "Zotero" },					properties = { tag = tags[3][3] } },
+     { rule = { class = "Evince" },					properties = { tag = tags[3][4] } },
+     { rule = { class = "Tomboy" },					properties = { tag = tags[3][5] } },
+     { rule = { class = "Clementine" },				properties = { tag = tags[3][6] } },
+     { rule = { class = "Amarok" },					properties = { tag = tags[3][6] } },
+	 { rule = { class = "Update-Manager" },			properties = { above = false, tag = tags[3][1] } },
+	 -- Bind login-screen to tags
+	 { rule = { class = "Login_screen_left.py" },	properties = { tag = tags[1][1] } },
+	 { rule = { class = "Login_screen_center.py" },	properties = { tag = tags[2][1] } },
+	 { rule = { class = "Login_screen_right.py" },	properties = { tag = tags[3][1] } }
 }
 -- }}}
 
@@ -460,8 +444,9 @@ client.add_signal("unfocus", function(c) c.border_color = beautiful.border_norma
 
 -- {{{ Autostart
 awful.util.spawn(home .. "/Bin/app/dropbox/dropbox --S")
-awful.util.spawn("update-manager")
 awful.util.spawn("tomboy  --panel-applet")
-awful.util.spawn("nitrogen --restore")
+awful.util.spawn(config .. "/bin/screen/login_screen_left.py")
+awful.util.spawn(config .. "/bin/screen/login_screen_center.py")
+awful.util.spawn(config .. "/bin/screen/login_screen_right.py")
 -- }}}
 
