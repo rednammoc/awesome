@@ -4,26 +4,23 @@
 
 -- {{{ Grab environment
 local setmetatable = setmetatable
+local config = awful.util.getdir("config")
 -- }}}
-
 
 -- updates: provides update-information
 -- vicious.widgets.updates
 local updates = {}
 
-
 -- {{{ updates widget type
 local function worker(format)
-	local apt_check = "/usr/lib/update-notifier/apt-check 2>&1"
-
 	-- Get update contents
-	local f = io.popen(apt_check)
+	local f = io.popen(config .. "/bin/system/update-checker.sh")
 	local updates = f:read("*all")
 	f:close()
 
-	-- Capture update state
-	local sec, def = string.match(updates, "([%d]+);([%d]+)")
-	return {(sec + def), def, sec}
+	-- Capture update state (security-update, standard-updates)
+	local sec, std = string.match(updates, "([%d]+);([%d]+)")
+	return {(sec + std), std, sec}
 end
 -- }}}
 
