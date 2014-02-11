@@ -4,6 +4,8 @@
 
 theme = {}
 
+theme.base_dir = awful.util.getdir("config") .. "/themes/default/"
+
 theme.font          = "sans 8"
 
 theme.bg_normal     = "#222222"
@@ -90,6 +92,8 @@ theme.layout_spiral  = "/usr/share/awesome/themes/default/layouts/spiralw.png"
 theme.layout_dwindle = "/usr/share/awesome/themes/default/layouts/dwindlew.png"
 
 theme.awesome_icon = "/usr/share/awesome/icons/awesome16.png"
+theme.power_icon = theme.base_dir .. "power.png"
+theme.close_icon = theme.base_dir .. "close.png"
 
 return theme
 -- vim: filetype=lua:expandtab:shiftwidth=4:tabstop=8:softtabstop=4:encoding=utf-8:textwidth=80

@@ -164,7 +164,6 @@ mypowerlauncher = awful.widget.launcher({ image = image(beautiful.power_icon), m
 
 -- Create a wibox for each screen and add it
 mywibox = {}
-mypromptbox = {}
 mylayoutbox = {}
 mytaglist = {}
 mytaglist.buttons = awful.util.table.join(
@@ -208,8 +207,6 @@ mytasklist.buttons = awful.util.table.join(
                                           end))
 
 for s = 1, screen.count() do
-    -- Create a promptbox for each screen
-    mypromptbox[s] = awful.widget.prompt({ layout = awful.widget.layout.horizontal.leftright })
     -- Create an imagebox widget which will contains an icon indicating which layout we're using.
     -- We need one layoutbox per screen.
     mylayoutbox[s] = awful.widget.layoutbox(s)
@@ -233,7 +230,6 @@ for s = 1, screen.count() do
         {
 			mylogo,
             mytaglist[s],
-            mypromptbox[s],
             layout = awful.widget.layout.horizontal.leftright
         },
 		mypowerlauncher,
@@ -248,6 +244,39 @@ for s = 1, screen.count() do
         layout = awful.widget.layout.horizontal.rightleft
     }
 end
+
+wibobox = {}
+mypromptbox = {}
+
+function wibotoggle()
+	wibobox[mouse.screen].visible = not wibobox[mouse.screen].visible
+	keygrabber.stop()
+end
+
+wibotogglebtn = widget({ type = "imagebox" })
+wibotogglebtn.image = image(beautiful.close_icon) 
+wibotogglebtn:buttons(awful.util.table.join(
+	awful.button({ }, 1, function () wibotoggle() end)	-- left mouse button click
+))
+
+for s = 1, screen.count() do
+    -- Create a promptbox for each screen
+    mypromptbox[s] = awful.widget.prompt({ layout = awful.widget.layout.horizontal.leftright })
+
+    -- Create bottom wibox for each screen
+    wibobox[s] = awful.wibox({position = "bottom", screen = s})
+    wibobox[s].widgets = {
+		{
+        	mypromptbox[s], 
+        	layout = awful.widget.layout.horizontal.leftright
+		},
+        wibotogglebtn,
+        layout = awful.widget.layout.horizontal.rightleft
+    }
+    wibobox[s].visible = false
+    wibobox[s].screen = s
+end
+
 -- }}}
 
 -- {{{ Mouse bindings
@@ -313,7 +342,17 @@ globalkeys = awful.util.table.join(
     -- Prompt
 	awful.key({ modkey },            "r",
 	function ()  
-		mypromptbox[mouse.screen]:run() 
+		wibobox[mouse.screen].visible = not wibobox[mouse.screen].visible 
+        awful.prompt.run({ prompt = "Run:" },
+		  mypromptbox[mouse.screen].widget,
+		  function (...)
+			  local result = awful.util.spawn(...)
+			  if type(result) == "string" then
+				 promptbox.widget.text = result
+			  end
+		  end,
+		  wibotoggle,
+		  awful.util.getdir("cache") .. "/history", nil, wibotoggle)
 	end),
     awful.key({ altkey }, "F2", function ()
         awful.prompt.run({ prompt = "Run: " }, mypromptbox[mouse.screen].widget,
