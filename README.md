@@ -11,6 +11,7 @@ Widgets:
 * ScreenLockWidget - Shows activation-status of screenlock. Can be toggled via click or [mod4] + F10.
 * MemoryWidget - Shows current memory-usage.
 * VolumeWidget - Shows current volume-information.
+* Wibobox - Adds a hidden bottom-panel to each screen which holds a promptbox. Promptbox can be toggled via [mod4] + r.  
 
 Key-Bindings:
 * mod4 + F1 - Search for man-page (TODO)
@@ -21,6 +22,7 @@ Key-Bindings:
 * mod4 + F10 - toggle screenlock.
 * mod4 + F11 - open powermenu. (Broken)
 * Volume-Keys
+* mod4 + r - toggle bottom-panel and promptbox.
 
 Theme:
 * Uses nitrogen-restore within theme.lua. 
