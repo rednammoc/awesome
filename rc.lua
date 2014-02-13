@@ -151,6 +151,10 @@ vicious.register(memwidget, vicious.widgets.mem, '<span color="#ffffff" weight="
 mylogo = widget({type = "textbox" })
 mylogo.text = "<span color=\"#ffffff\"> (◣_◢) </span>"
 
+-- Create spacer
+myspacer = widget({type = "textbox" })
+myspacer.text = " "
+
 -- Create quit-menu (label, table, icon)
 mypowermenu = awful.menu( {
     items = {
@@ -233,14 +237,19 @@ for s = 1, screen.count() do
             layout = awful.widget.layout.horizontal.leftright
         },
 		mypowerlauncher,
+		myspacer, 
         timewidget,
+		myspacer, 
 		s == 2 and memwidget or nil,
 		s == 2 and updateswidget or nil,
 		s == 2 and volwidget or nil,
 		s == 2 and screenlockwidget or nil,
         s == 3 and mysystray or nil,
+		myspacer, 
         mylayoutbox[s],
+		myspacer, 
         mytasklist[s],
+		myspacer, 
         layout = awful.widget.layout.horizontal.rightleft
     }
 end
