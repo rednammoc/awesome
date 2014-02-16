@@ -45,8 +45,8 @@ local email_cmd			= email
 local filemanager_cmd	= filemanager
 local updatemanager_cmd	= "update-manager"
 
-local shutdown_cmd		= function () os.execute("sudo halt") 			end
-local reboot_cmd		= function () os.execute("sudo reboot") 		end
+local shutdown_cmd		= function () awful.util.spawn("/usr/lib/indicator-session/gtk-logout-helper --shutdown") 	end
+local restart_cmd		= function () awful.util.spawn("/usr/lib/indicator-session/gtk-logout-helper --restart") 	end
 local lockscreen_cmd	= function () os.execute("xtrlock") 			end
 local suspend_cmd		= function () os.execute("sudo pm-suspend") 	end
 local hibernate_cmd		= function () os.execute("sudo pm-hibernate") 	end
@@ -160,8 +160,8 @@ mypowermenu = awful.menu( {
     items = {
         { "Lock Screen",    lockscreen_cmd  },
         { "Hibernate",      hibernate_cmd   },
-        { "Suspend",        suspend_cmd     },
-        { "Reboot",         reboot_cmd      },
+       -- { "Suspend",        suspend_cmd     },
+        { "Restart",         restart_cmd      },
         { "Shutdown",       shutdown_cmd    }}
     })
 mypowerlauncher = awful.widget.launcher({ image = image(beautiful.power_icon), menu = mypowermenu })
@@ -259,7 +259,20 @@ mypromptbox = {}
 
 function wibotoggle()
 	wibobox[mouse.screen].visible = not wibobox[mouse.screen].visible
-	keygrabber.stop()
+	if not wibobox[mouse.screen].visible then keygrabber.stop() end
+	return wibobox[mouse.screen].visible
+end
+
+function wiborun(prompt_text, callback, cache)
+	if not wibotoggle() then return end
+	awful.prompt.run({ prompt = prompt_text },
+		  mypromptbox[mouse.screen].widget,
+		  callback,		-- execute callback when pressing enter
+		  wibotoggle,	-- toggle when success
+		  cache, 		
+		  nil, 			
+		  wibotoggle	-- toggle when abort
+	)
 end
 
 wibotogglebtn = widget({ type = "imagebox" })
@@ -276,6 +289,7 @@ for s = 1, screen.count() do
     wibobox[s] = awful.wibox({position = "bottom", screen = s})
     wibobox[s].widgets = {
 		{
+			myspacer,
         	mypromptbox[s], 
         	layout = awful.widget.layout.horizontal.leftright
 		},
@@ -349,44 +363,25 @@ globalkeys = awful.util.table.join(
     awful.key({ modkey, "Control" }, "n", awful.client.restore),
 
     -- Prompt
-	awful.key({ modkey },            "r",
-	function ()  
-		wibobox[mouse.screen].visible = not wibobox[mouse.screen].visible 
-        awful.prompt.run({ prompt = "Run:" },
-		  mypromptbox[mouse.screen].widget,
-		  function (...)
+	awful.key({ modkey }, "F2",  function ()  
+		wiborun("Run:", 
+			function (...)
 			  local result = awful.util.spawn(...)
 			  if type(result) == "string" then
-				 promptbox.widget.text = result
+				 mypromptbox.widget.text = result
 			  end
-		  end,
-		  wibotoggle,
-		  awful.util.getdir("cache") .. "/history", nil, wibotoggle)
-	end),
-    awful.key({ altkey }, "F2", function ()
-        awful.prompt.run({ prompt = "Run: " }, mypromptbox[mouse.screen].widget,
-            function (...) mypromptbox[mouse.screen].text = exec(unpack(arg), false) end,
-            awful.completion.shell, awful.util.getdir("cache") .. "/history")
+			end,
+			awful.util.getdir("cache") .. "/history")
     end),
-    awful.key({ altkey }, "F3", function ()
-        awful.prompt.run({ prompt = "Dictionary: " }, mypromptbox[mouse.screen].widget,
-            function (words)
-                sexec("firefox 'http://www.dict.cc/?s="..words.."'")
-            end)
-    end),
-    awful.key({ altkey }, "F4", function ()
-        awful.prompt.run({ prompt = "Web: " }, mypromptbox[mouse.screen].widget,
+    awful.key({ modkey }, "F3", function ()
+		wiborun("Web:",
             function (command)
                 sexec("firefox 'http://www.google.com/?q="..command.."'")
                 awful.tag.viewonly(tags[scount][3])
             end)
     end),
-    awful.key({ altkey }, "F5", function ()
-        awful.prompt.run({ prompt = "Lua: " }, mypromptbox[mouse.screen].widget,
-        awful.util.eval, nil, awful.util.getdir("cache") .. "/history_eval")
-    end),	
-   
-  	-- Volume keys
+
+	-- Volume keys
   	awful.key({ }, "XF86AudioLowerVolume", 
 		  function () awful.util.spawn("amixer -q sset Master 2dB-") 	end),
 	awful.key({ }, "XF86AudioRaiseVolume", 
